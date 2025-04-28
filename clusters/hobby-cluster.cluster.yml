@@ -1,0 +1,96 @@
+---
+# Required for ansible to use the correct inventory plugin
+plugin: cluster
+
+nodes:
+  # groupName:
+  #   num: Number of hosts in this group (required)
+  #   type: vServer product type (required)
+  #   image: OS image (Default: debian-12)
+  #   is_control: Determines if this group contains control-plane server (Default: false)
+  #   is_worker: Determines if this group contains worker server (Default: false)
+  #   locations: List of locations for servers of this group (Default: fsn1, nbg1, hel1)
+
+  control:
+    num: 3
+    type: cax11
+    image: debian-12
+    is_control: true
+    is_worker: false
+    storage: true
+    locations:
+      - fsn1
+      - nbg1
+      - hel1
+
+  node_arm_small:
+    num: 2
+    type: cax11
+    is_worker: true
+
+  # node_x86_small:
+  #   num: 1
+  #   type: cx22
+  #   is_worker: true
+
+volumes:
+  - name: storage
+    size: 20G
+
+# SSH-Keys to configure
+ssh_keys:
+  va-macbook: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAedTghB/0v+b0qafDaSOmfJVMOGNxASbjz8VbH4Ay8s
+
+# Configuration of mailsystem
+mail:
+  admin_mail: admin@hobby-cluster.de
+  host: mail.your-server.de
+  port: 587
+  user: no-reply@hobby-cluster.de
+  domain: hobby-cluster.de
+  password: !vault |
+    $ANSIBLE_VAULT;1.1;AES256
+    38343331653730633935623336353534636165616464623137363431393533643463303633663131
+    3563626538343732633765333733633732346638636361650a336662663338386639373865646339
+    33366662313934353466626461346431363862633634643736336339346237363233323566353063
+    3863343134616137350a666330316565313033303762336562663163366538343938316439326463
+    39343736623133326461346530376261613532346238646465646138343365346235
+
+# Settings for unattended-upgrades
+unattended_upgrades:
+  verbose: true # Set to true if unattended-upgrades should send a mail everytime it runs
+  start_time: "03:00" # Start time for earliest unattended-upgrades
+  end_time: "05:00" # Start time for latest unattended-upgrades
+
+network:
+  # Private network CIDR for internal cluster communication
+  private_cidr: 10.0.0.0/24
+
+hetzner:
+  # Settings for DNS
+  dns:
+    zone: hobby-cluster.de
+    ttl: 600
+
+  token:
+    # Token for Hetzner Cloud API
+    cloud: !vault |
+      $ANSIBLE_VAULT;1.1;AES256
+      39363932643939376235383036636237346538336330376461376163306639373262363434353031
+      3763363538313166316531353334343664616564663634320a323763396665323433353337393331
+      32316334363837626463613264396439303036313334363264323865623232383936323362363234
+      6430336262633337640a353764653361346531333963396164613563633935343764303537373032
+      64646434353939633764616139386638336331323935643563353863353538613263666132623531
+      63313230323434633937393938383137643638353461353036633335646535323839393533343061
+      65303732653537386330356666613133356633313730366432343937313134623031613239626266
+      35643066383034643164
+
+    # Token for Hetzner DNS API
+    dns: !vault |
+      $ANSIBLE_VAULT;1.1;AES256
+      38633739623063316531623965653036663636396532613962633662623839623961663862643731
+      3065643830646562376362313538393032376161303861360a303832636632323035376165643238
+      64343863336161623831623938333933633434373165653230623031393466653764663264656634
+      3837643661346138370a663961626434343863663737363961363161343466663433376262313830
+      34356466396163356237356563633965623634643464363530303632396132613832633430656338
+      6134313434393638353464303037363534653036393161653563

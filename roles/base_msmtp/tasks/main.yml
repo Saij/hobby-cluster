@@ -1,0 +1,22 @@
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - msmtp
+    update_cache: true
+    state: present
+
+- name: Setup msmtp configuration
+  ansible.builtin.template:
+    src: msmtprc.j2
+    dest: /etc/msmtprc
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Create sendmail symlink
+  ansible.builtin.file:
+    src: /usr/bin/msmtp
+    dest: /usr/sbin/sendmail
+    owner: root
+    group: root
+    state: link

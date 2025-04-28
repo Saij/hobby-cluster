@@ -1,0 +1,13 @@
+- name: Create or resize and attach Hetzner cluster volumes
+  hetzner.hcloud.volume:
+    api_token: "{{ hetzner.token.cloud }}"
+    name: "{{ inventory_hostname }}_{{ item.name }}"
+    size: "{{ item.size | regex_replace('G$', '') | int }}"
+    server: "{{ inventory_hostname }}"
+    state: present
+  loop: "{{ cluster_volumes | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  delegate_to: localhost
+  connection: local
+  when: item.needs_create or item.needs_resize

@@ -1,0 +1,7 @@
+{
+    "ansible.python.interpreterPath": ".venv/bin/python",
+    "ansible.ansible.path": ".venv/bin/ansible",
+    "ansible.validation.lint.path": ".venv/bin/ansible-lint",
+    "ansible.ansible.reuseTerminal": true,
+    "ansible.python.activationScript": ".venv/bin/activate"
+}

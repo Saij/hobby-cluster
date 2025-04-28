@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+#
+# Cluster management tool
+# Version: 1.0.0
+#
+# This script provides a command-line interface for managing hobby-cluster.
+# It supports various commands for cluster operations and requires a cluster
+# configuration file to be specified.
+
+# Enable strict error handling
+set -euo pipefail
+IFS=$'\n\t'
+
+# Source helper functions
+source scripts/helper/ansible.sh
+source scripts/helper/array.sh
+source scripts/helper/catch.sh
+source scripts/helper/color.sh
+source scripts/helper/commands.sh
+source scripts/helper/deps.sh
+source scripts/helper/log.sh
+source scripts/helper/usage.sh
+
+# Global variables
+COMMANDS=()
+VERBOSE=false
+HELP=false
+REINSTALL=false
+CLUSTER=
+CLUSTER_FILE=
+VAULT_FILE=
+
+# Source command implementations
+source scripts/commands/clear.sh
+source scripts/commands/nodes.sh
+source scripts/commands/play.sh
+source scripts/commands/ssh.sh
+source scripts/commands/volumes.sh
+
+_command= # Command to run
+_args=() # Args we pass to the command
+
+# Validate command line arguments
+if [ 0 == $# ]; then
+    log_error "No command specified"
+    usage
+    exit 1
+fi
+
+# Process all arguments
+i=1
+while [ $i -le $# ]; do
+    case "${!i}" in
+        -h|--help)
+            HELP=true
+            ;;
+        -v|--verbose)
+            VERBOSE=true
+            ;;
+        --reinstall)
+            REINSTALL=true
+            ;;
+        -c|--cluster)
+            i=$((i + 1))
+            if [ $i -gt $# ]; then
+                log_error "Option --cluster requires an argument"
+                usage
+                exit 1
+            fi
+            CLUSTER="${!i}"
+            ;;
+        --cluster=*)
+            CLUSTER="${!i#*=}"
+            ;;
+        -*)
+            # No global option so we save it for the command options
+            _args+=("${!i}")
+            ;;
+        *)
+            if [ -z "$_command" ]; then
+                _command="${!i}"
+            else
+                _args+=("${!i}")
+            fi
+            ;;
+    esac
+    i=$((i + 1))
+done
+
+# Validate command
+if [ -z "$_command" ]; then
+    if $HELP; then
+        usage
+        exit 0
+    else
+        log_error "No command specified"
+        usage
+        exit 1
+    fi
+fi
+
+if ! $HELP; then
+    # Validate cluster
+    if [[ -z "$CLUSTER" ]]; then
+        log_error "No cluster specified!"
+        usage
+        exit 1
+    fi
+
+    # Validate cluster configuration
+    CLUSTER_FILE="$(dirname "$(readlink -f "$0")")/clusters/${CLUSTER}.cluster.yml"
+    if [[ ! -r "$CLUSTER_FILE" ]]; then
+        log_error "Configuration for cluster ${CLUSTER} not found! Searched for file ${CLUSTER_FILE}"
+        exit 1
+    fi
+
+    VAULT_FILE="$(dirname "$(readlink -f "$0")")/clusters/${CLUSTER}.vault.auth"
+    if [[ ! -r "$VAULT_FILE" ]]; then
+        log_error "Vault file for cluster ${CLUSTER} not found! Searched for file ${VAULT_FILE}"
+        exit 1
+    fi
+fi
+
+_run_func="COMMANDS_RUN_FUNC__${_command}"
+if [[ -z "${!_run_func:-}" ]]; then
+    log_error "Unknown command: ${_command}"
+    usage
+    exit 1
+fi
+
+# Handle help request
+if $HELP; then
+    usage "$_command"
+    exit 0
+fi
+
+# Process command options and execute command
+_options_func="COMMANDS_OPTIONS_FUNC__${_command}"
+if [ ${#_args[@]} -gt 0 ]; then
+    if declare -F "${!_options_func:-}" > /dev/null; then
+        "${!_options_func}" "${_args[@]}"
+    else
+        log_error "Unknown option ${_args[0]}"
+        usage "$_command"
+        exit 1
+    fi
+fi
+
+"${!_run_func}"

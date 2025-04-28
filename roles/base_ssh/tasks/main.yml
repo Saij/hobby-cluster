@@ -1,0 +1,6 @@
+- name: Update SSH Keys on servers
+  ansible.posix.authorized_key:
+    exclusive: true
+    state: present
+    user: root
+    key: "{{ ssh_keys | dict2items | map(attribute='value') | join(\"\n\") }}"

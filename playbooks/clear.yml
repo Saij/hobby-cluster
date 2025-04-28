@@ -1,0 +1,96 @@
+- name: Clear Hetzner Cloud project
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Get all servers
+      hetzner.hcloud.server_info:
+        api_token: "{{ hetzner.token.cloud }}"
+      register: servers
+
+    - name: Get all SSH keys
+      hetzner.hcloud.ssh_key_info:
+        api_token: "{{ hetzner.token.cloud }}"
+      register: existing_ssh_keys
+
+    - name: Get all volumes
+      hetzner.hcloud.volume_info:
+        api_token: "{{ hetzner.token.cloud }}"
+      register: cloud_volumes
+
+    - name: Get all DNS records
+      community.dns.hetzner_dns_record_set_info:
+        api_token: "{{ hetzner.token.dns }}"
+        zone_name: "{{ hetzner.dns.zone }}"
+        what: all_records
+      register: dns_records
+
+    - name: Filter managed DNS record prefixes
+      ansible.builtin.set_fact:
+        managed_prefixes: >-
+          {{ dns_records.sets |
+          selectattr('type', 'equalto', 'TXT') |
+          selectattr('value', 'contains', 'cluster_managed') |
+          map(attribute='prefix') |
+          list }}
+
+    - name: Filter managed DNS records (non-TXT)
+      ansible.builtin.set_fact:
+        managed_dns_records: >-
+          {{ dns_records.sets |
+          selectattr('prefix', 'in', managed_prefixes) |
+          rejectattr('type', 'equalto', 'TXT') |
+          list }}
+
+    - name: Remove managed DNS records (non-TXT)
+      community.dns.hetzner_dns_record_set:
+        api_token: "{{ hetzner.token.dns }}"
+        zone_name: "{{ hetzner.dns.zone }}"
+        prefix: "{{ item.prefix }}"
+        type: "{{ item.type }}"
+        state: absent
+      loop: "{{ managed_dns_records }}"
+      loop_control:
+        label: "{{ item.prefix }}.{{ hetzner.dns.zone }} ({{ item.type }})"
+
+    - name: Remove managed DNS TXT tracking records
+      community.dns.hetzner_dns_record_set:
+        api_token: "{{ hetzner.token.dns }}"
+        zone_name: "{{ hetzner.dns.zone }}"
+        prefix: "{{ item }}"
+        type: TXT
+        state: absent
+      loop: "{{ managed_prefixes }}"
+      loop_control:
+        label: "{{ item }}.{{ hetzner.dns.zone }} (TXT)"
+
+    - name: Remove SSH keys
+      hetzner.hcloud.ssh_key:
+        api_token: "{{ hetzner.token.cloud }}"
+        name: "{{ item.name }}"
+        state: absent
+      loop: "{{ existing_ssh_keys.hcloud_ssh_key_info }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Remove servers
+      hetzner.hcloud.server:
+        api_token: "{{ hetzner.token.cloud }}"
+        id: "{{ item.id }}"
+        state: absent
+      loop: "{{ servers.hcloud_server_info }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: server_removal
+      retries: 3
+      delay: 10
+      until: server_removal is success
+
+    - name: Remove all volumes
+      hetzner.hcloud.volume:
+        api_token: "{{ hetzner.token.cloud }}"
+        name: "{{ item.name }}"
+        state: absent
+      loop: "{{ cloud_volumes.hcloud_volume_info | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"

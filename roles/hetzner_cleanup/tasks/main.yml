@@ -1,0 +1,20 @@
+- name: Remove unmanaged Hetzner server
+  loop: "{{ groups['unmanaged'] | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  hetzner.hcloud.server:
+    api_token: "{{ hetzner.token.cloud }}"
+    id: "{{ hostvars[item].hetzner_id }}"
+    state: absent
+
+- name: Remove orphaned Hetzner volumes
+  hetzner.hcloud.volume:
+    api_token: "{{ hetzner.token.cloud }}"
+    id: "{{ item.id }}"
+    name: "{{ item.name }}"
+    state: absent
+  loop: "{{ orphan_volumes | default([]) }}"
+  loop_control:
+    label: "{{ item.name }} (id: {{ item.id }})"
+  when: orphan_volumes is defined and orphan_volumes|length > 0
+  run_once: true

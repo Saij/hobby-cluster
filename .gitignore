@@ -1,0 +1,10 @@
+# Python
+.venv
+**/__pycache__
+
+# Ansible
+.ansible
+clusters/*.auth
+
+# MacOS
+.DS_Store

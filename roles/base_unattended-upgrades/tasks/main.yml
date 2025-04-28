@@ -1,0 +1,31 @@
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - unattended-upgrades
+      - needrestart
+    update_cache: true
+    state: present
+
+- name: Copy 52unattended-upgrades-local
+  ansible.builtin.template:
+    src: 52unattended-upgrades-local.j2
+    dest: /etc/apt/apt.conf.d/52unattended-upgrades-local
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Copy 20auto-upgrades
+  ansible.builtin.template:
+    src: 20auto-upgrades.j2
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Copy 99needrestart
+  ansible.builtin.template:
+    src: 99needrestart.j2
+    dest: /etc/apt/apt.conf.d/99needrestart
+    owner: root
+    group: root
+    mode: "0644"

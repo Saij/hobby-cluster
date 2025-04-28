@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+
+defaults
+auth           on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+logfile        /var/log/msmtp.log
+
+account        cluster
+host           {{ mail.host }}
+port           {{ mail.port }}
+from           {{ inventory_hostname }}@{{ mail.domain }}
+user           {{ mail.user }}
+password       {{ mail.password }}
+tls            on
+tls_starttls   on
+domain         {{ mail.domain }}
+allow_from_override off
+set_from_header on
+
+account default : cluster

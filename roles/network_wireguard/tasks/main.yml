@@ -1,0 +1,111 @@
+---
+# WireGuard VPN setup for cluster nodes
+# This role installs and configures WireGuard for secure private networking
+
+- name: Install WireGuard
+  ansible.builtin.apt:
+    name:
+      - wireguard
+    update_cache: true
+    state: present
+
+- name: Ensure /etc/wireguard directory exists
+  ansible.builtin.file:
+    path: /etc/wireguard
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Check if WireGuard private key exists
+  ansible.builtin.stat:
+    path: /etc/wireguard/privatekey
+  register: wg_private_key_stat
+
+- name: Generate and save WireGuard private key if not present
+  when: not wg_private_key_stat.stat.exists
+  block:
+    - name: Generate WireGuard private key
+      ansible.builtin.command: wg genkey
+      register: wg_private_key
+      changed_when: true
+
+    - name: Save WireGuard private key
+      ansible.builtin.copy:
+        content: "{{ wg_private_key.stdout }}\n"
+        dest: /etc/wireguard/privatekey
+        owner: root
+        group: root
+        mode: '0600'
+
+- name: Read WireGuard private key from file
+  ansible.builtin.slurp:
+    src: /etc/wireguard/privatekey
+  register: wg_private_key_file
+
+- name: Set WireGuard private key as host fact
+  ansible.builtin.set_fact:
+    wg_private_key: "{{ wg_private_key_file.content | b64decode | trim }}"
+
+- name: Check if WireGuard public key exists
+  ansible.builtin.stat:
+    path: /etc/wireguard/publickey
+  register: wg_public_key_stat
+
+- name: Generate and save WireGuard public key if not present
+  when: not wg_public_key_stat.stat.exists
+  block:
+    - name: Generate WireGuard public key from private key
+      ansible.builtin.command: wg pubkey
+      args:
+        stdin: "{{ wg_private_key }}"
+      register: wg_public_key
+      changed_when: true
+
+    - name: Save WireGuard public key
+      ansible.builtin.copy:
+        content: "{{ wg_public_key.stdout }}\n"
+        dest: /etc/wireguard/publickey
+        owner: root
+        group: root
+        mode: '0644'
+
+- name: Read WireGuard public key from file
+  ansible.builtin.slurp:
+    src: /etc/wireguard/publickey
+  register: wg_public_key_file
+
+- name: Set WireGuard public key as host fact
+  ansible.builtin.set_fact:
+    wg_public_key: "{{ wg_public_key_file.content | b64decode | trim }}"
+
+- name: Render WireGuard configuration
+  ansible.builtin.template:
+    src: wg0.conf.j2
+    dest: /etc/wireguard/wg0.conf
+    owner: root
+    group: root
+    mode: '0600'
+  notify: Restart WireGuard
+
+- name: Allow WireGuard UDP port 51820 in firewall
+  community.general.ufw:
+    rule: allow
+    port: 51820
+    proto: udp
+
+- name: Allow all incoming traffic on wg0 interface
+  community.general.ufw:
+    rule: allow
+    interface: wg0
+    direction: in
+
+- name: Enable WireGuard service
+  ansible.builtin.systemd:
+    name: wg-quick@wg0
+    enabled: true
+
+- name: Start WireGuard service
+  ansible.builtin.systemd:
+    name: wg-quick@wg0
+    state: started

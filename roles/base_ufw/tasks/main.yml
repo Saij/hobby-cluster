@@ -1,0 +1,30 @@
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - ufw
+    update_cache: true
+    state: present
+
+- name: Enable IPv6
+  ansible.builtin.lineinfile:
+    dest: /etc/default/ufw
+    regexp: '^IPV6='
+    line: "IPV6=yes"
+    state: present
+  notify: Reload UFW
+
+- name: Allow SSH
+  notify: Reload UFW
+  community.general.ufw:
+    rule: allow
+    port: 22
+    proto: tcp
+
+- name: Default policy
+  community.general.ufw:
+    policy: deny
+    direction: incoming
+
+- name: Enable firewall
+  community.general.ufw:
+    state: enabled

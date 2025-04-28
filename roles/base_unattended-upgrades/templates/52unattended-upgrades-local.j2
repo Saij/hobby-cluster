@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+
+Unattended-Upgrade::OnlyOnACPower "false";
+Unattended-Upgrade::Mail "{{ mail.admin_mail }}";
+Unattended-Upgrade::Sender "{{ inventory_hostname }}@{{ mail.domain }}";
+
+{% if upgrade_time is defined %}
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "{{ upgrade_time }}";
+{% else %}
+Unattended-Upgrade::Automatic-Reboot "false";
+{% endif %}
+
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::MailReport "{{ 'always' if unattended_upgrades.verbose is defined and unattended_upgrades.verbose else 'on-change' }}";
+
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+
+Unattended-Upgrade::Allow-downgrade "false";

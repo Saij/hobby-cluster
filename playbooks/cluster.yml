@@ -1,0 +1,24 @@
+- name: Provisioning servers
+  hosts: all
+  any_errors_fatal: true
+  gather_facts: false
+  roles:
+    - hetzner_provision
+    - hetzner_dns
+    - hetzner_volumes
+
+- name: Install base system
+  hosts: managed
+  any_errors_fatal: true
+  roles:
+    - base_ufw
+    - base_ssh
+    - base_msmtp
+    - base_unattended-upgrades
+    - network_wireguard
+
+- name: Cleanup cluster
+  gather_facts: false
+  hosts: localhost
+  roles:
+    - hetzner_cleanup

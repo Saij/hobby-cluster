@@ -1,0 +1,35 @@
+- name: Setup rDNS
+  connection: local
+  delegate_to: localhost
+  hetzner.hcloud.rdns:
+    api_token: "{{ hetzner.token.cloud }}"
+    ip_address: "{{ ansible_host }}"
+    dns_ptr: "{{ inventory_hostname }}.{{ hetzner.dns.zone }}"
+    server: "{{ inventory_hostname }}"
+    state: present
+
+- name: Setting DNS
+  connection: local
+  delegate_to: localhost
+  throttle: 1 # Need to throttle else the API doesn't like it and returns an error
+  community.dns.hetzner_dns_record_set:
+    api_token: "{{ hetzner.token.dns }}"
+    zone_name: "{{ hetzner.dns.zone }}"
+    prefix: "{{ inventory_hostname if inventory_hostname in groups['managed'] else old_name }}"
+    type: AAAA
+    ttl: "{{ hetzner.dns.ttl }}"
+    value: "{{ ansible_host }}"
+    state: "{{ 'present' if inventory_hostname in groups['managed'] else 'absent' }}"
+
+- name: Setting DNS - TXT to track
+  connection: local
+  delegate_to: localhost
+  throttle: 1 # Need to throttle else the API doesn't like it and returns an error
+  community.dns.hetzner_dns_record_set:
+    api_token: "{{ hetzner.token.dns }}"
+    zone_name: "{{ hetzner.dns.zone }}"
+    prefix: "{{ inventory_hostname if inventory_hostname in groups['managed'] else old_name }}"
+    type: TXT
+    ttl: "{{ hetzner.dns.ttl }}"
+    value: "cluster_managed"
+    state: "{{ 'present' if inventory_hostname in groups['managed'] else 'absent' }}"
