@@ -66,6 +66,9 @@ network:
   # Private network CIDR for internal cluster communication
   private_cidr: 10.0.0.0/24
 
+etcd:
+  version: v3.3.8
+
 hetzner:
   # Settings for DNS
   dns:

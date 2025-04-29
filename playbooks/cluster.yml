@@ -18,6 +18,12 @@
     - base_unattended-upgrades
     - network_wireguard
 
+- name: Install Kubernetes Control-Plane
+  hosts: controlplane
+  any_errors_fatal: true
+  roles:
+    - control_etcd
+
 - name: Cleanup cluster
   gather_facts: false
   hosts: localhost

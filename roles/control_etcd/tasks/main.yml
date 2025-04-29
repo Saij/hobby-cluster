@@ -1,0 +1,56 @@
+---
+- name: Set architecture for etcd
+  ansible.builtin.set_fact:
+    etcd_arch: "{{ ansible_facts.architecture | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}"
+
+- name: Check for installed etcd
+  ansible.builtin.stat:
+    path: "/opt/etcd-{{ etcd.version }}-linux-{{ etcd_arch }}.tar.gz"
+  register: etcd_package
+
+- name: Install etcd
+  when: not etcd_package.stat.exists
+  block:
+    - name: Create etcd directory
+      ansible.builtin.file:
+        path: /opt/etcd
+        state: directory
+        mode: "0755"
+
+    - name: Delete old versions
+      ansible.builtin.command:
+        cmd: "rm -rfv /opt/etcd-*.tar.gz"
+      register: etcd_delete_old
+      changed_when: etcd_delete_old.stdout_lines | length > 0
+
+    - name: Downloading etcd package
+      ansible.builtin.get_url:
+        url: "https://storage.googleapis.com/etcd/{{ etcd.version }}/etcd-{{ etcd.version }}-linux-{{ etcd_arch }}.tar.gz"
+        dest: "/opt/etcd-{{ etcd.version }}-linux-{{ etcd_arch }}.tar.gz"
+        timeout: 250
+        mode: "0440"
+
+    - name: Unpacking etcd package
+      ansible.builtin.unarchive:
+        src: "/opt/etcd-{{ etcd.version }}-linux-{{ etcd_arch }}.tar.gz"
+        dest: /opt/etcd
+        remote_src: true
+        extra_opts:
+          - --strip-components=1
+      notify: (Re-)Start etcd
+
+- name: Collecting etcd peers
+  ansible.builtin.set_fact:
+    etcd_peers: >-
+      {% for host in groups['controlplane'] -%}
+        {{ host }}=http://{{ hostvars[host].internal_ip }}:2380{%- if not loop.last %},{% endif %}
+      {%- endfor %}
+
+- name: Create etcd service
+  ansible.builtin.template:
+    src: etcd.service.j2
+    dest: /etc/systemd/system/etcd.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: (Re-)Start etcd
