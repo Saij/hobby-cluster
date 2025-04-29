@@ -11,6 +11,7 @@
   hosts: managed
   any_errors_fatal: true
   roles:
+    - base_swap
     - base_ufw
     - base_ssh
     - base_msmtp
