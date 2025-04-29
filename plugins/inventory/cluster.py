@@ -828,6 +828,9 @@ class InventoryModule(BaseInventoryPlugin):
         is_worker = self._get_group_config(group, "is_worker", False)
         self._inventory.set_variable(group, "is_control", is_control)
         self._inventory.set_variable(group, "is_worker", is_worker)
+
+        has_storage = self._get_group_config(group, "storage", False)
+        self._inventory.set_variable(group, "storage", has_storage)
         
         server_type = self._get_group_config(group, "type")
         if not server_type:

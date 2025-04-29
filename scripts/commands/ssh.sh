@@ -74,7 +74,7 @@ ssh_command() {
     fi
 
     log_info "Connecting to $SSH_NODE_NAME ($_ip)..."
-    ssh "root@$_ip"
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "root@$_ip"
 }
 
 # This function processes command line options for the ssh command.
