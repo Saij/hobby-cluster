@@ -1,0 +1,6 @@
+- name: Install packages
+  ansible.builtin.apt:
+    name:
+      - rsyslog
+    update_cache: true
+    state: present
