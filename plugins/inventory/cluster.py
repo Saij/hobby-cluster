@@ -805,7 +805,12 @@ class InventoryModule(BaseInventoryPlugin):
                 new_name = f"remove-{server.name}" if not server.name.startswith("remove-") else server.name
 
                 self._inventory.add_host(new_name, "unmanaged")
+                if server.labels.get("is_control") == "true":
+                    self._inventory.add_host(new_name, "controlplane")
+
+                self._inventory.set_variable(new_name, "remove", True)
                 self._inventory.set_variable(new_name, "old_name", server.name)
+                self._inventory.set_variable(new_name, "hetzner_id", server.id)
                 self._inventory.set_variable(new_name, "ansible_host", self._get_current_ip(server))
 
     def _prepare_group(self, group: str) -> None:
