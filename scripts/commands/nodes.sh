@@ -63,6 +63,9 @@ nodes_command() {
         return 1
     fi
 
+    log_debug "Inventory JSON"
+    log_debug "$_inv_out"
+
     echo ""
 
     # Show all nodes or specific node
