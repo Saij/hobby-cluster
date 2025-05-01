@@ -52,7 +52,7 @@
       loop: "{{ managed_dns_records }}"
       loop_control:
         label: "{{ item.prefix }}.{{ hetzner.dns.zone }} ({{ item.type }})"
-      retries: 5
+      throttle: 1
 
     - name: Remove managed DNS TXT tracking records
       community.dns.hetzner_dns_record_set:
@@ -64,7 +64,7 @@
       loop: "{{ managed_prefixes }}"
       loop_control:
         label: "{{ item }}.{{ hetzner.dns.zone }} (TXT)"
-      retries: 5
+      throttle: 1
 
     - name: Remove SSH keys
       hetzner.hcloud.ssh_key:
