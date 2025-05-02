@@ -2,5 +2,6 @@
   ansible.builtin.apt:
     name:
       - rsyslog
+      - jq
     update_cache: true
     state: present
