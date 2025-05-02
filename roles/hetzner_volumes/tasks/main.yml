@@ -10,12 +10,11 @@
     label: "{{ item.name }}"
   delegate_to: localhost
   connection: local
-  when: item.needs_create or item.needs_resize
+  when: storage is defined and storage and item.needs_create or item.needs_resize
 
 - name: Install ceph-common
   ansible.builtin.apt:
     name:
       - ceph-common
     update_cache: true
-    state: present
-  when: storage
+    state: "{{ 'present' if storage is defined and storage else 'absent' }}"
