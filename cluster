@@ -36,6 +36,7 @@ source scripts/commands/nodes.sh
 source scripts/commands/play.sh
 source scripts/commands/ssh.sh
 source scripts/commands/volumes.sh
+source scripts/commands/etcd.sh
 
 _command= # Command to run
 _args=() # Args we pass to the command

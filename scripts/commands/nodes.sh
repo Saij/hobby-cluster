@@ -3,7 +3,7 @@
 # Version: 1.0.0
 #
 # Dependencies:
-#   - ansible.sh (for ansible_prepare, ansible_vault_password_option)
+#   - ansible.sh (for ansible_prepare)
 #   - log.sh (for logging functions)
 #   - catch.sh (for error catching)
 #   - array.sh (for array_join)
