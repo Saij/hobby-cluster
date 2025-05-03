@@ -12,11 +12,17 @@
   any_errors_fatal: true
   roles:
     - role: base_rsyslog
+      when: state != "remove"
     - role: base_swap
+      when: state != "remove"
     - role: base_ufw
+      when: state != "remove"
     - role: base_ssh
+      when: state != "remove"
     - role: base_msmtp
+      when: state != "remove"
     - role: base_unattended-upgrades
+      when: state != "remove"
     - role: network_wireguard
       vars:
         wg_peers: "{{ groups['_managed'] }}"
@@ -27,8 +33,8 @@
   roles:
     - control_etcd
 
-# - name: Cleanup cluster
-#   gather_facts: false
-#   hosts: localhost
-#   roles:
-#     - hetzner_cleanup
+- name: Cleanup servers
+  gather_facts: false
+  hosts: localhost
+  roles:
+    - cleanup_hetzner

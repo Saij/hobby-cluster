@@ -1,5 +1,12 @@
-- name: Remove unmanaged Hetzner server
-  loop: "{{ groups['unmanaged'] | default([]) }}"
+- name: Remove unused Hetzner server
+  loop: "{{ 
+    hostvars |
+    dict2items |
+    selectattr('value.state', 'defined') |
+    selectattr('value.state', 'equalto', 'remove') |
+    map(attribute='key') |
+    list
+  }}"
   loop_control:
     label: "{{ item }}"
   hetzner.hcloud.server:
@@ -16,5 +23,5 @@
   loop: "{{ orphan_volumes | default([]) }}"
   loop_control:
     label: "{{ item.name }} (id: {{ item.id }})"
-  when: orphan_volumes is defined and orphan_volumes|length > 0
+  when: orphan_volumes is defined and orphan_volumes | length > 0
   run_once: true
