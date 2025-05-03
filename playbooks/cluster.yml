@@ -31,7 +31,33 @@
   hosts: _control
   any_errors_fatal: true
   roles:
-    - control_etcd
+    - role: control_etcd
+      vars:
+        job: create
+
+- name: Cleanup Kubernetes Control-Plane
+  hosts: _control
+  any_errors_fatal: true
+  roles:
+    - role: control_etcd
+      vars:
+        job: cleanup
+
+- name: Cleanup Base System
+  hosts: _managed
+  any_errors_fatal: true
+  roles:
+    - role: network_wireguard
+      vars:
+        wg_peers: >-
+          {{
+            hostvars
+            | dict2items
+            | selectattr('key', 'in', groups['_managed'])
+            | selectattr('value.state', 'ne', 'remove')
+            | map(attribute='key')
+            | list
+          }}
 
 - name: Cleanup servers
   gather_facts: false

@@ -1,0 +1,97 @@
+- name: Check if etcd is already running
+  ansible.builtin.shell:
+    cmd: pgrep -x etcd
+  register: etcd_running
+  changed_when: false
+  failed_when: false
+
+- name: Remove unmanaged control nodes from cluster
+  when: state == "remove" and etcd_running.rc == 0
+  block:
+    - name: Get etcd member list
+      ansible.builtin.command: >
+        /opt/etcd/etcdctl --endpoints="http://{{ internal_ip }}:{{ etcd.ports.clients | default('2379') }}"
+        --write-out=json --hex member list
+      register: etcd_member_list
+      changed_when: false
+
+    - name: Extract etcd member ID for this node
+      ansible.builtin.set_fact:
+        etcd_member_id: >-
+          {{
+            (etcd_member_list.stdout | from_json).members |
+            selectattr('name', 'equalto', etcd_name) |
+            map(attribute='ID') |
+            first
+          }}
+
+    - name: Remove node from etcd cluster
+      when: etcd_member_id != ''
+      ansible.builtin.command: >
+        /opt/etcd/etcdctl --endpoints="http://{{ internal_ip }}:{{ etcd.ports.clients | default('2379') }}"
+        member remove {{ etcd_member_id }}
+      register: etcd_remove_result
+      changed_when: "'removed' in etcd_remove_result.stdout"
+
+    - name: Stop etcd service
+      ansible.builtin.systemd:
+        name: etcd
+        state: stopped
+        enabled: false
+
+- name: Fix runner script
+  when: state != "remove" and etcd_running.rc == 0
+  block:
+    - name: Build variables
+      ansible.builtin.set_fact:
+        etcd_existing_nodes: >-
+          {{
+            hostvars
+            | dict2items
+            | selectattr('key', 'in', groups['_control'])
+            | selectattr('value.state', 'ne', 'remove')
+            | map(attribute='key')
+            | list
+          }}
+        etcd_peers: >-
+          {{
+              hostvars
+              | dict2items
+              | selectattr('key', 'in', groups['_control'])
+              | selectattr('value.state', 'ne', 'remove')
+              | map(attribute='value')
+              | list
+              | map(attribute='etcd_name')
+              | zip(
+                  hostvars
+                  | dict2items
+                  | selectattr('key', 'in', groups['_control'])
+                  | selectattr('value.state', 'ne', 'remove')
+                  | map(attribute='value')
+                  | map(attribute='internal_ip')
+                )
+              | map('join', '=http://')
+              | map('regex_replace', '$', ':' ~ (etcd.ports.peers | default("2380")))
+              | join(',')
+            }}
+
+    - name: Copy runner script
+      ansible.builtin.template:
+        src: runner.sh.j2
+        dest: /opt/etcd/runner.sh
+        owner: root
+        group: root
+        mode: "0700"
+      notify: (Re-)Start etcd
+
+    - name: Flush handlers
+      ansible.builtin.meta: flush_handlers
+
+    - name: Wait for etcd to become healthy
+      ansible.builtin.command: >
+        /opt/etcd/etcdctl --endpoints="http://{{ internal_ip }}:{{ etcd.ports.clients | default("2379") }}" endpoint health
+      register: etcd_health
+      until: etcd_health.rc == 0
+      retries: 20
+      delay: 2
+      changed_when: false

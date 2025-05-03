@@ -1,0 +1,100 @@
+---
+- name: Check if etcd is already running
+  ansible.builtin.shell:
+    cmd: pgrep -x etcd
+  register: etcd_running
+  changed_when: false
+  failed_when: false
+
+- name: Build required variables
+  ansible.builtin.set_fact:
+    etcd_arch: "{{ ansible_facts.architecture | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}"
+    etcd_existing_nodes: >-
+      {{
+        hostvars |
+        dict2items |
+        selectattr('value.etcd_running.rc', 'defined') |
+        selectattr('value.etcd_running.rc', 'equalto', 0) |
+        map(attribute='key') |
+        list
+      }}
+    etcd_peers: >-
+      {{
+        groups['_control'] |
+        map('extract', hostvars) |
+        map(attribute='etcd_name') |
+        zip(
+          groups['_control'] |
+          map('extract', hostvars) |
+          map(attribute='internal_ip')
+        ) |
+        map('join', '=http://') |
+        map('regex_replace', '$', ':' ~ (etcd.ports.peers | default('2380'))) |
+        join(',')
+      }}
+
+- name: Check for installed etcd version
+  ansible.builtin.stat:
+    path: "/opt/etcd-{{ etcd.version }}-linux-{{ etcd_arch }}.tar.gz"
+  register: etcd_package
+
+- name: Install etcd
+  when: not etcd_package.stat.exists
+  block:
+    - name: Create etcd directory
+      ansible.builtin.file:
+        path: /opt/etcd
+        state: directory
+        mode: "0755"
+
+    - name: Delete old versions
+      ansible.builtin.command:
+        cmd: "rm -rfv /opt/etcd-*.tar.gz"
+      register: etcd_delete_old
+      changed_when: etcd_delete_old.stdout_lines | length > 0
+
+    - name: Downloading etcd package
+      ansible.builtin.get_url:
+        url: "https://storage.googleapis.com/etcd/{{ etcd.version }}/etcd-{{ etcd.version }}-linux-{{ etcd_arch }}.tar.gz"
+        dest: "/opt/etcd-{{ etcd.version }}-linux-{{ etcd_arch }}.tar.gz"
+        timeout: 250
+        mode: "0440"
+
+    - name: Unpacking etcd package
+      ansible.builtin.unarchive:
+        src: "/opt/etcd-{{ etcd.version }}-linux-{{ etcd_arch }}.tar.gz"
+        dest: /opt/etcd
+        remote_src: true
+        extra_opts:
+          - --strip-components=1
+      notify: (Re-)Start etcd
+    
+- name: Copy runner script
+  ansible.builtin.template:
+    src: runner.sh.j2
+    dest: /opt/etcd/runner.sh
+    owner: root
+    group: root
+    mode: "0700"
+  notify: (Re-)Start etcd
+
+- name: Create etcd service
+  ansible.builtin.template:
+    src: etcd.service.j2
+    dest: /etc/systemd/system/etcd.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: (Re-)Start etcd
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for etcd to become healthy
+  ansible.builtin.command: >
+    /opt/etcd/etcdctl --endpoints="http://{{ internal_ip }}:{{ etcd.ports.clients | default("2379") }}" endpoint health
+  register: etcd_health
+  until: etcd_health.rc == 0
+  retries: 20
+  delay: 2
+  changed_when: false
