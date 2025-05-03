@@ -132,7 +132,7 @@ nodes_options() {
 #   0 - Group should be displayed
 #   1 - Group should be skipped
 nodes_should_skip_group() {
-    [[ "$1" == "_meta" || "$1" == "all" || "$1" == "unmanaged" || "$1" == "controlplane" || "$1" == "worker" || "$1" == "managed" ]]
+    [[ "$1" == "_meta" || "$1" == "all" || "$1" == "_managed" || "$1" == "_control" ]]
 }
 
 # This function displays information about all nodes in the inventory.
@@ -149,7 +149,7 @@ nodes_show_all() {
     local _image
     local -a _group_functions=()
     local _host
-    local _needs_create
+    local _state
     local _location
     local _host_asterisk
     local _ip
@@ -179,9 +179,9 @@ nodes_show_all() {
         echo "  Hosts:"
 
         for _host in $(echo "$_inv_out" | jq -r ".$_group.hosts.[]"); do
-            _needs_create=$(ansible_get_host_var "$_inv_out" "$_host" "create")
+            _state=$(ansible_get_host_var "$_inv_out" "$_host" "state")
             _location=$(ansible_get_host_var "$_inv_out" "$_host" "location")
-            if $_needs_create; then
+            if [ "$_state" == "create" ]; then
                 _host_asterisk=" ${COLOR_WHITE_BOLD}(*)${COLOR_RESET}"
             else
                 _host_asterisk="    "
@@ -219,10 +219,12 @@ nodes_show_single() {
     local _is_worker
     local _server_type
     local _image
-    local _needs_create
+    local _state
+    local _display_state
     local _current_ip
     local _upgrade_time
     local _internal_ip
+    local _etcd_name
 
     for _group in $(echo "$_inv_out" | jq -r ". | keys | .[]"); do
         if nodes_should_skip_group "$_group"; then
@@ -252,18 +254,30 @@ nodes_show_single() {
     _server_type=$(ansible_get_group_var "$_inv_out" "$_node_group" "type")
     _image=$(ansible_get_group_var "$_inv_out" "$_node_group" "image")
     
-    _needs_create=$(ansible_get_host_var "$_inv_out" "$_node_name" "create")
+    _state=$(ansible_get_host_var "$_inv_out" "$_node_name" "state")
     _current_ip=$(ansible_get_host_var "$_inv_out" "$_node_name" "ansible_host")
     _upgrade_time=$(ansible_get_host_var "$_inv_out" "$_node_name" "upgrade_time")
     _internal_ip=$(ansible_get_host_var "$_inv_out" "$_node_name" "internal_ip")
+    _etcd_name=$(ansible_get_host_var "$_inv_out" "$_node_name" "etcd_name")
+
+    if [ "$_state" == "create" ]; then
+        _display_state="Create"
+    elif [ "$_state" == "used" ]; then
+        _display_state="Reused"
+    else
+        _display_state="Removed"
+    fi
 
     echo -e "${COLOR_WHITE_BOLD}$_node_name${COLOR_RESET}"
     echo -e "  Group: ${COLOR_WHITE_BOLD}$_node_group${COLOR_RESET}"
-    echo -e "  Is new: ${COLOR_WHITE_BOLD}$(if $_needs_create; then echo "Yes"; else echo "No"; fi)${COLOR_RESET}"
-    if ! $_needs_create; then
+    echo -e "  State: ${COLOR_WHITE_BOLD}$_display_state${COLOR_RESET}"
+    if [ "$_state" != "create" ]; then
         echo -e "  Current IP: ${COLOR_WHITE_BOLD}$_current_ip${COLOR_RESET}"
     fi
     echo -e "  Internal IP: ${COLOR_WHITE_BOLD}$_internal_ip${COLOR_RESET}"
+    if [ -z "$_etcd_name" ]; then
+        echo -e "  ETCD Name: ${COLOR_WHITE_BOLD}$_etcd_name${COLOR_RESET}"
+    fi
     echo -e "  Is Control-Plane: ${COLOR_WHITE_BOLD}$(if $_is_control; then echo "Yes"; else echo "No"; fi)${COLOR_RESET}"
     echo -e "  Is Worker: ${COLOR_WHITE_BOLD}$(if $_is_worker; then echo "Yes"; else echo "No"; fi)${COLOR_RESET}"
     echo -e "  Server-Type: ${COLOR_WHITE_BOLD}$_server_type${COLOR_RESET}"

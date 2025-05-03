@@ -735,11 +735,9 @@ class InventoryModule(BaseInventoryPlugin):
         Raises:
             AnsibleError: If group configuration is invalid or required groups are missing.
         """
-        # Add base groups
-        self._inventory.add_group("controlplane")
-        self._inventory.add_group("worker")
-        self._inventory.add_group("managed")
-        self._inventory.add_group("unmanaged")
+        # Initialize meta groups
+        self._inventory.add_group("_managed")
+        self._inventory.add_group("_control")
 
         # Initialize time assigner
         self._init_host_time_assigner()
@@ -758,7 +756,7 @@ class InventoryModule(BaseInventoryPlugin):
                     raise AnsibleError(f"Failed to reserve internal_ip {internal_ip} for server {server.name}: {e}")
 
         # Process each group
-        for group in self._config["nodes"]:
+        for group in self._get_config("nodes"):
             self._prepare_group(group)
 
         # After all hosts/volumes are processed, find orphaned volumes
@@ -803,15 +801,25 @@ class InventoryModule(BaseInventoryPlugin):
             if server.id not in self._hetzner_servers_configured:
                 # Server is not managed by us (anymore?)
                 new_name = f"remove-{server.name}" if not server.name.startswith("remove-") else server.name
+                internal_name = server.name.replace("remove-", "")
+                is_managed = server.labels.get("managed") == "cluster"
+                is_control = server.labels.get("is_control") == "true"
 
-                self._inventory.add_host(new_name, "unmanaged")
-                if server.labels.get("is_control") == "true":
-                    self._inventory.add_host(new_name, "controlplane")
+                self._inventory.add_host(new_name, "all")
 
-                self._inventory.set_variable(new_name, "remove", True)
-                self._inventory.set_variable(new_name, "old_name", server.name)
+                internal_ip = server.labels.get("internal_ip")
+                self._inventory.set_variable(new_name, "internal_ip", internal_ip)
+                self._inventory.set_variable(new_name, "internal_name", internal_name)
+                self._inventory.set_variable(new_name, "etcd_name", f"{internal_name}-{server.id}")
+                self._inventory.set_variable(new_name, "state", "remove")
                 self._inventory.set_variable(new_name, "hetzner_id", server.id)
                 self._inventory.set_variable(new_name, "ansible_host", self._get_current_ip(server))
+                self._inventory.set_variable(new_name, "managed", is_managed)
+
+                if is_managed:
+                    self._inventory.add_child("_managed", new_name)
+                    if is_managed:
+                        self._inventory.add_child("_control", new_name)
 
     def _prepare_group(self, group: str) -> None:
         """
@@ -829,13 +837,15 @@ class InventoryModule(BaseInventoryPlugin):
         """
         self._inventory.add_group(group)
 
+        self._inventory.set_variable(group, "managed", True)
+
         is_control = self._get_group_config(group, "is_control", False)
         is_worker = self._get_group_config(group, "is_worker", False)
         self._inventory.set_variable(group, "is_control", is_control)
         self._inventory.set_variable(group, "is_worker", is_worker)
 
         has_storage = self._get_group_config(group, "storage", False)
-        self._inventory.set_variable(group, "storage", has_storage)
+        self._inventory.set_variable(group, "has_storage", has_storage)
         
         server_type = self._get_group_config(group, "type")
         if not server_type:
@@ -877,9 +887,12 @@ class InventoryModule(BaseInventoryPlugin):
         hostname = f"{group.replace('_', '-')}-{host}"
         found_server = self._search_fitting_server(hostname, server_type, image, is_control, is_worker)
 
-        # Assign location
+        # Set server as configured
         if found_server is not None:
             self._hetzner_servers_configured.append(found_server.id)
+
+        # Assign location
+        if found_server is not None:
             location = found_server.labels.get("location")
             location_manager.increment(location)
         else:
@@ -897,24 +910,24 @@ class InventoryModule(BaseInventoryPlugin):
             internal_ip = self._network_manager.get_next_ip()
 
         self._inventory.add_host(hostname, group)
-        self._inventory.set_variable(hostname, "create", found_server is None)
+        self._inventory.set_variable(hostname, "state", 'create' if found_server is None else 'use')
         self._inventory.set_variable(hostname, "location", location)
         self._inventory.set_variable(hostname, "internal_ip", internal_ip)
-        self._inventory.set_variable(
-            hostname, 
-            "upgrade_time", 
-            self._host_time_assigner.get_next_slot(group)
-        )
+        self._inventory.set_variable(hostname, "internal_name", hostname)
+        self._inventory.set_variable(hostname, "upgrade_time", self._host_time_assigner.get_next_slot(group))
 
+        # Set etcd_name
+        if found_server:
+            self._inventory.set_variable(hostname, "etcd_name", f"{hostname}-{found_server.id}")
+
+        # Set ansible host
         if found_server is not None:
             self._inventory.set_variable(hostname, "ansible_host", self._get_current_ip(found_server))
 
+        # Set fitting meta group
+        self._inventory.add_child("_managed", hostname)
         if is_control:
-            self._inventory.add_child("controlplane", hostname)
-        if is_worker:
-            self._inventory.add_child("worker", hostname)
-
-        self._inventory.add_child("managed", hostname)
+            self._inventory.add_child("_control", hostname)
 
         # Set cluster_volumes if this group is responsible for storage
         if self._get_group_config(group, "storage", False):

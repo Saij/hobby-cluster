@@ -3,29 +3,32 @@
   any_errors_fatal: true
   gather_facts: false
   roles:
-    - hetzner_provision
-    - hetzner_dns
-    - hetzner_volumes
+    - role: hetzner_provision
+    - role: hetzner_dns
+    - role: hetzner_volumes
 
 - name: Install base system
-  hosts: managed
+  hosts: _managed
   any_errors_fatal: true
   roles:
-    - base_swap
-    - base_ufw
-    - base_ssh
-    - base_msmtp
-    - base_unattended-upgrades
-    - network_wireguard
+    - role: base_rsyslog
+    - role: base_swap
+    - role: base_ufw
+    - role: base_ssh
+    - role: base_msmtp
+    - role: base_unattended-upgrades
+    - role: network_wireguard
+      vars:
+        wg_peers: "{{ groups['_managed'] }}"
 
-- name: Install Kubernetes Control-Plane
-  hosts: controlplane
-  any_errors_fatal: true
-  roles:
-    - control_etcd
+# - name: Install Kubernetes Control-Plane
+#   hosts: controlplane
+#   any_errors_fatal: true
+#   roles:
+#     - control_etcd
 
-- name: Cleanup cluster
-  gather_facts: false
-  hosts: localhost
-  roles:
-    - hetzner_cleanup
+# - name: Cleanup cluster
+#   gather_facts: false
+#   hosts: localhost
+#   roles:
+#     - hetzner_cleanup

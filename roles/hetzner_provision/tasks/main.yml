@@ -1,7 +1,7 @@
 - name: Rename old/not managed servers
   connection: local
   delegate_to: localhost
-  when: inventory_hostname in groups["unmanaged"] and inventory_hostname != old_name
+  when: state == "remove"
   ansible.builtin.uri:
     url: "https://api.hetzner.cloud/v1/servers/{{ hetzner_id }}"
     method: PUT
@@ -26,14 +26,14 @@
     label: "{{ item.key }}"
 
 - name: Create Server Block
-  when: inventory_hostname in groups['managed'] and create
+  when: state == "create"
   block:
     - name: Create server
       connection: local
       delegate_to: localhost
       hetzner.hcloud.server:
         api_token: "{{ hetzner.token.cloud }}"
-        name: "{{ inventory_hostname }}"
+        name: "{{ internal_name }}"
         server_type: "{{ type }}"
         image: "{{ image }}"
         state: started
@@ -48,7 +48,12 @@
           is_control: "{{ is_control | lower }}"
           is_worker: "{{ is_worker | lower }}"
           internal_ip: "{{ internal_ip }}"
+          managed: "cluster"
       register: server
+
+    - name: Set etcd_name
+      set_fact:
+        etcd_name: "{{ internal_name }}-{{ server.hcloud_server.id }}"
 
     - name: Get new IPv6
       connection: local

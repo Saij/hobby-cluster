@@ -5,7 +5,7 @@ PrivateKey = {{ wg_private_key }}
 Address = {{ internal_ip }}
 ListenPort = 51820
 
-{% for host in groups['managed'] if host != inventory_hostname %}
+{% for host in wg_peers if host != inventory_hostname %}
 [Peer]
 PublicKey = {{ hostvars[host]['wg_public_key'] }}
 Endpoint = {{ hostvars[host]['ansible_host'] }}:51820

@@ -2,7 +2,7 @@
 
 Unattended-Upgrade::OnlyOnACPower "false";
 Unattended-Upgrade::Mail "{{ mail.admin_mail }}";
-Unattended-Upgrade::Sender "{{ inventory_hostname }}@{{ mail.domain }}";
+Unattended-Upgrade::Sender "{{ internal_name }}@{{ mail.domain }}";
 
 {% if upgrade_time is defined %}
 Unattended-Upgrade::Automatic-Reboot "true";
