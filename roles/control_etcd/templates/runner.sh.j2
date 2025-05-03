@@ -111,12 +111,6 @@ if [ "$DATA_DIR_EXISTS" == "false" ]; then
       --initial-cluster-state "new"
     )
   fi
-else
-  ETCD_CMD_JOIN+=(
-    --initial-advertise-peer-urls "$PEER_URL"
-    --initial-cluster="{{ etcd_peers }}"
-    --initial-cluster-state "existing"
-  )
 fi
 
 log "🚀 Starting etcd..."

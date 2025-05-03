@@ -101,13 +101,7 @@
 
 - name: Re-Build variables for idempotency
   ansible.builtin.set_fact:
-    etcd_existing_nodes: >-
-      {{
-        groups['_control'] |
-        map('extract', hostvars) |
-        map(attribute='internal_name') |
-        list
-      }}
+    etcd_existing_nodes: "{{ groups['_control'] }}"
     etcd_peers: >-
       {{
         groups['_control'] |
