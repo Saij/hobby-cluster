@@ -4,7 +4,4 @@
     state: restarted
     enabled: true
     daemon_reload: true
-  register: etcd_service_state
-  until: etcd_service_state.ActiveState == "active"
-  retries: 20
-  delay: 5
+  throttle: 1

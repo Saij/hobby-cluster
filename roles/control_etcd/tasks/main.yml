@@ -1,9 +1,39 @@
 ---
-- name: Set architecture for etcd
+- name: Check if etcd is already running
+  ansible.builtin.shell:
+    cmd: pgrep -x etcd
+  register: etcd_running
+  changed_when: false
+  failed_when: false
+
+- name: Build required variables
   ansible.builtin.set_fact:
     etcd_arch: "{{ ansible_facts.architecture | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}"
+    etcd_existing_nodes: >-
+      {{
+        hostvars |
+        dict2items |
+        selectattr('value.etcd_running.rc', 'defined') |
+        selectattr('value.etcd_running.rc', 'equalto', 0) |
+        map(attribute='key') |
+        list
+      }}
+    etcd_peers: >-
+      {{
+        groups['_control'] |
+        map('extract', hostvars) |
+        map(attribute='etcd_name') |
+        zip(
+          groups['_control'] |
+          map('extract', hostvars) |
+          map(attribute='internal_ip')
+        ) |
+        map('join', '=http://') |
+        map('regex_replace', '$', ':{{ etcd.ports.peers | default("2380") }}') |
+        join(',')
+      }}
 
-- name: Check for installed etcd
+- name: Check for installed etcd version
   ansible.builtin.stat:
     path: "/opt/etcd-{{ etcd.version }}-linux-{{ etcd_arch }}.tar.gz"
   register: etcd_package
@@ -38,13 +68,15 @@
         extra_opts:
           - --strip-components=1
       notify: (Re-)Start etcd
-
-- name: Collecting etcd peers
-  ansible.builtin.set_fact:
-    etcd_peers: >-
-      {% for host in groups['controlplane'] -%}
-        {{ host }}=http://{{ hostvars[host].internal_ip }}:2380{%- if not loop.last %},{% endif %}
-      {%- endfor %}
+    
+- name: Copy runner script
+  ansible.builtin.template:
+    src: runner.sh.j2
+    dest: /opt/etcd/runner.sh
+    owner: root
+    group: root
+    mode: "0700"
+  notify: (Re-)Start etcd
 
 - name: Create etcd service
   ansible.builtin.template:
@@ -54,3 +86,47 @@
     group: root
     mode: "0644"
   notify: (Re-)Start etcd
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for etcd to become healthy
+  ansible.builtin.command: >
+    /opt/etcd/etcdctl --endpoints="http://{{ internal_ip }}:{{ etcd.ports.clients | default("2379") }}" endpoint health
+  register: etcd_health
+  until: etcd_health.rc == 0
+  retries: 20
+  delay: 2
+  changed_when: false
+
+- name: Re-Build variables for idempotency
+  ansible.builtin.set_fact:
+    etcd_existing_nodes: >-
+      {{
+        groups['_control'] |
+        map('extract', hostvars) |
+        map(attribute='internal_name') |
+        list
+      }}
+    etcd_peers: >-
+      {{
+        groups['_control'] |
+        map('extract', hostvars) |
+        map(attribute='etcd_name') |
+        zip(
+          groups['_control'] |
+          map('extract', hostvars) |
+          map(attribute='internal_ip')
+        ) |
+        map('join', '=http://') |
+        map('regex_replace', '$', ':{{ etcd.ports.peers | default("2380") }}') |
+        join(',')
+      }}
+
+- name: Copy runner script for idempotency
+  ansible.builtin.template:
+    src: runner.sh.j2
+    dest: /opt/etcd/runner.sh
+    owner: root
+    group: root
+    mode: "0700"

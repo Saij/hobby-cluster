@@ -818,7 +818,7 @@ class InventoryModule(BaseInventoryPlugin):
 
                 if is_managed:
                     self._inventory.add_child("_managed", new_name)
-                    if is_managed:
+                    if is_control:
                         self._inventory.add_child("_control", new_name)
 
     def _prepare_group(self, group: str) -> None:

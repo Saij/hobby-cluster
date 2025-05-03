@@ -21,11 +21,11 @@
       vars:
         wg_peers: "{{ groups['_managed'] }}"
 
-# - name: Install Kubernetes Control-Plane
-#   hosts: controlplane
-#   any_errors_fatal: true
-#   roles:
-#     - control_etcd
+- name: Install Kubernetes Control-Plane
+  hosts: _control
+  any_errors_fatal: true
+  roles:
+    - control_etcd
 
 # - name: Cleanup cluster
 #   gather_facts: false

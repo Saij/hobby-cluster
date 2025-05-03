@@ -16,17 +16,17 @@ nodes:
     type: cax11
     image: debian-12
     is_control: true
-    is_worker: false
+    is_worker: true
     storage: true
     locations:
       - fsn1
       - nbg1
       - hel1
 
-  node_arm_small:
-    num: 2
-    type: cax11
-    is_worker: true
+  # node_arm_small:
+  #   num: 2
+  #   type: cax11
+  #   is_worker: true
 
   # node_x86_small:
   #   num: 1
@@ -67,7 +67,10 @@ network:
   private_cidr: 10.0.0.0/24
 
 etcd:
-  version: v3.3.8
+  version: v3.5.21
+  ports:
+    peers: 2380
+    clients: 2379
 
 hetzner:
   # Settings for DNS
