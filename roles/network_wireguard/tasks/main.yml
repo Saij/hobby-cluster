@@ -86,7 +86,7 @@
     owner: root
     group: root
     mode: '0600'
-  notify: Restart WireGuard
+  notify: (Re-)Start WireGuard
 
 - name: Allow WireGuard UDP port 51820 in firewall
   community.general.ufw:
@@ -99,13 +99,3 @@
     rule: allow
     interface: wg0
     direction: in
-
-- name: Enable WireGuard service
-  ansible.builtin.systemd:
-    name: wg-quick@wg0
-    enabled: true
-
-- name: Start WireGuard service
-  ansible.builtin.systemd:
-    name: wg-quick@wg0
-    state: started
