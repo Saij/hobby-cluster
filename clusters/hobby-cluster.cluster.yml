@@ -16,7 +16,7 @@ nodes:
     type: cax11
     image: debian-12
     is_control: true
-    is_worker: true
+    is_worker: false
     storage: true
     locations:
       - fsn1
