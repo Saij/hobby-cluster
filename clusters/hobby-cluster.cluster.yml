@@ -23,15 +23,10 @@ nodes:
       - nbg1
       - hel1
 
-  # node_arm_small:
-  #   num: 2
-  #   type: cax11
-  #   is_worker: true
-
-  # node_x86_small:
-  #   num: 1
-  #   type: cx22
-  #   is_worker: true
+  worker_x86_small:
+    num: 2
+    type: cax11
+    is_worker: true
 
 volumes:
   - name: storage
