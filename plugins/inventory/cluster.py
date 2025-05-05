@@ -738,6 +738,7 @@ class InventoryModule(BaseInventoryPlugin):
         # Initialize meta groups
         self._inventory.add_group("_managed")
         self._inventory.add_group("_control")
+        self._inventory.add_group("_remove")
 
         # Initialize time assigner
         self._init_host_time_assigner()
@@ -820,6 +821,8 @@ class InventoryModule(BaseInventoryPlugin):
                     self._inventory.add_child("_managed", new_name)
                     if is_control:
                         self._inventory.add_child("_control", new_name)
+                else:
+                    self._inventory.add_child("_remove", new_name)
 
     def _prepare_group(self, group: str) -> None:
         """

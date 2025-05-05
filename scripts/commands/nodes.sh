@@ -132,7 +132,7 @@ nodes_options() {
 #   0 - Group should be displayed
 #   1 - Group should be skipped
 nodes_should_skip_group() {
-    [[ "$1" == "_meta" || "$1" == "all" || "$1" == "_managed" || "$1" == "_control" ]]
+    [[ "$1" == "_meta" || "$1" == "all" || "$1" == "_managed" || "$1" == "_control" || "$1" == "_remove" ]]
 }
 
 # This function displays information about all nodes in the inventory.

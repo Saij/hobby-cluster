@@ -8,21 +8,21 @@
     - role: hetzner_volumes
 
 - name: Install base system
-  hosts: _managed
+  hosts: _managed:!_remove
   any_errors_fatal: true
   roles:
     - role: base_rsyslog
-      when: state != "remove"
     - role: base_swap
-      when: state != "remove"
     - role: base_ufw
-      when: state != "remove"
     - role: base_ssh
-      when: state != "remove"
     - role: base_msmtp
-      when: state != "remove"
     - role: base_unattended-upgrades
-      when: state != "remove"
+    - role: base_containerd
+
+- name: Setup network
+  hosts: _managed
+  any_errors_fatal: true
+  roles:
     - role: network_wireguard
       vars:
         wg_peers: "{{ groups['_managed'] }}"
@@ -43,7 +43,7 @@
       vars:
         job: cleanup
 
-- name: Cleanup Base System
+- name: Cleanup Network
   hosts: _managed
   any_errors_fatal: true
   roles:
